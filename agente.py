@@ -1,115 +1,167 @@
 #!/usr/bin/env python3
-"""Mini Agente CLI - MVP con Qwen3-Coder"""
-import subprocess
-import json
+"""Mini Agente CLI v1.02 - Chat directo con IA"""
+
+import sys
 import os
-from lib.ui import error, ok, info, pedir_numero
-from lib import commands
 
-MENU = [
-    ("Read file", commands.leer_archivo),
-    ("Edit file", commands.editar_archivo),
-    ("Install deps", commands.instalar_deps),
-    ("Run script", None),
-    ("Search files", None),
-    ("Debug", commands.depurar),
-]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-def run_script():
-    if not os.path.exists("package.json"):
-        error("No package.json found")
+if sys.platform == "win32":
+    os.environ["PYTHONIOENCODING"] = "utf-8"
+
+from lib.ui import banner, msg, input_, header, separator, mostrar_comandos
+from lib.providers import auto_detect, get_active_provider
+from lib import chat_client
+
+HISTORY = []
+PROVEEDOR_ACTIVO = None
+
+def mostrar_proveedores():
+    providers = auto_detect()
+    header("Proveedores disponibles")
+    for p in providers:
+        print("  " + str(p))
+    print()
+
+def mostrar_ayuda():
+    print("")
+    print("====================================================")
+    print("  Mini Agente CLI v1.02 - Comandos")
+    print("====================================================")
+    print("")
+    print("Comandos:")
+    print("  /help       - Ver esta ayuda")
+    print("  /clear     - Limpiar historial")
+    print("  /proveedor - Ver proveedores disponibles")
+    print("  /model    - Cambiar modelo")
+    print("  /exit      - Salir")
+    print("")
+    print("Atajos:")
+    print("  !q <pregunta> - Pregunta rapida")
+    print("  !e <archivo>  - Editar archivo")
+    print("  !r <archivo>  - Leer archivo")
+    print("")
+    print("Tips:")
+    print("  - Escribe directamente tu pregunta")
+    print("  - En espanol funciona bien")
+    print("  - El robot te explica paso a paso")
+
+def procesar_comando(cmd):
+    cmd = cmd.lower().strip()
+    
+    if cmd in ("/help", "/ayuda", "ayuda", "help"):
+        mostrar_ayuda()
+        return True
+    
+    if cmd in ("/clear", "/limpiar", "clear"):
+        global HISTORY
+        HISTORY = []
+        msg("ok", "Historial limpiado!")
+        return True
+    
+    if cmd in ("/proveedor", "/providers", "proveedor"):
+        mostrar_proveedores()
+        return True
+    
+    if cmd in ("/model", "/modelo"):
+        msg("info", "Selecciona proveedor:")
+        mostrar_proveedores()
+        return True
+    
+    if cmd in ("/exit", "/salir", "salir", "exit", "quit"):
+        print("")
+        print("[i] Hasta luego!")
+        return False
+    
+    if cmd in ("/status", "status"):
+        banner()
+        mostrar_proveedores()
+        return True
+    
+    return False
+
+def chat(prompt):
+    global HISTORY, PROVEEDOR_ACTIVO
+    
+    if not PROVEEDOR_ACTIVO:
+        PROVEEDOR_ACTIVO = get_active_provider()
+    
+    if not PROVEEDOR_ACTIVO:
+        msg("error", "Sin proveedor activo!")
+        print("[i] Asegurate de tener:")
+        print("  - Ollama corriendo")
+        print("  - OPENAI_API_KEY en entorno")
+        print("  - ANTHROPIC_API_KEY en entorno")
         return
+    
+    HISTORY.append({"role": "user", "content": prompt})
+    
+    msg("pensando", "El robot esta pensando...")
     
     try:
-        with open("package.json") as f:
-            scripts = json.load(f).get("scripts", {})
-    except:
-        error("Invalid package.json")
-        return
-    
-    if not scripts:
-        error("No scripts defined")
-        return
-    
-    print("Available scripts:")
-    for i, name in enumerate(scripts.keys(), 1):
-        print(f"  {i}. {name}")
-    
-    sel = pedir_numero(1, len(scripts))
-    script_name = list(scripts.keys())[sel - 1]
-    
-    info(f"Running npm run {script_name}...")
-    result = subprocess.run(
-        ["npm", "run", script_name],
-        capture_output=True, text=True
-    )
-    print(result.stdout)
-    if result.stderr:
-        error(result.stderr)
-    else:
-        ok(f"Script {script_name} completed")
-
-def search_files():
-    patron = input("Pattern (e.g. *.js, *.py): ").strip()
-    if not patron:
-        error("Pattern required")
-        return
-    
-    ext = patron.replace("*", "")
-    encontrados = []
-    
-    for root, dirs, files in os.walk("."):
-        if "node_modules" in root or ".git" in root:
-            continue
-        for f in files:
-            if f.endswith(ext.replace(".", "")):
-                encontrados.append(os.path.join(root, f))
-    
-    if encontrados:
-        for f in encontrados[:20]:
-            print(f"  {f}")
-        if len(encontrados) > 20:
-            print(f"  ... and {len(encontrados) - 20} more")
-    else:
-        error("No files found")
-
-def mostrar_menu():
-    print()
-    print("=== MINI AGENTE ===")
-    for i, (nombre, _) in enumerate(MENU, 1):
-        print(f"  {i}. {nombre}")
-    print(f"  {len(MENU) + 1}. Exit")
+        respuesta = chat_client.chat(prompt, PROVEEDOR_ACTIVO, HISTORY)
+        
+        if respuesta:
+            HISTORY.append({"role": "assistant", "content": respuesta})
+            header("Respuesta")
+            print("")
+            print(respuesta)
+            print("")
+        else:
+            msg("error", "No hubo respuesta")
+            
+    except Exception as e:
+        msg("error", "Error: " + str(e))
 
 def main():
+    global PROVEEDOR_ACTIVO
+    
+    banner()
+    
+    PROVEEDOR_ACTIVO = get_active_provider()
+    
+    if PROVEEDOR_ACTIVO:
+        msg("ok", "Conectado a: " + PROVEEDOR_ACTIVO)
+    else:
+        msg("error", "Sin proveedor activo")
+    
+    print()
+    mostrar_proveedores()
+    mostrar_ayuda()
+    
     while True:
-        mostrar_menu()
-        
         try:
-            sel = pedir_numero(1, len(MENU) + 1)
-        except (KeyboardInterrupt, EOFError):
-            print("\n")
+            prompt = input_("")
+            
+            if not prompt:
+                continue
+            
+            if prompt.startswith("/"):
+                if not procesar_comando(prompt):
+                    break
+                continue
+            
+            if prompt.startswith("!"):
+                parte = prompt.split(None, 1)
+                cmd = parte[0]
+                arg = parte[1] if len(parte) > 1 else ""
+                
+                if cmd == "!q":
+                    if not arg:
+                        arg = input_("Tu pregunta: ")
+                    if arg:
+                        chat(arg)
+                continue
+            
+            chat(prompt)
+            
+        except KeyboardInterrupt:
+            print("")
+            print("")
+            print("[i] Hasta luego!")
             break
-        
-        if sel == len(MENU) + 1:
-            print("Bye!")
+        except EOFError:
             break
-        
-        print()
-        func = MENU[sel - 1][1]
-        
-        if func:
-            try:
-                func()
-            except KeyboardInterrupt:
-                error("Cancelled")
-            except Exception as e:
-                error(f"Error: {e}")
-        elif sel == 4:
-            run_script()
-        elif sel == 5:
-            search_files()
-        else:
-            error("Not implemented")
 
 if __name__ == "__main__":
     main()

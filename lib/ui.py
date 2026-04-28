@@ -1,28 +1,52 @@
-from colorama import init, Fore, Style
+"""UI simple sin emojis para compatibilidad Windows"""
 
-init(autoreset=True)
+import sys
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except:
+        pass
 
-def error(txt):
-    print(f"{Fore.RED}Error: {txt}{Style.RESET_ALL}")
+def banner():
+    print("")
+    print("=====================================")
+    print("  Mini Agente CLI - Coding con IA")
+    print("  Aprende a programar!")
+    print("=====================================")
+    print("")
 
-def ok(txt):
-    print(f"{Fore.GREEN}✓ {txt}{Style.RESET_ALL}")
-
-def info(txt):
-    print(f"{Fore.BLUE}>{txt}{Style.RESET_ALL}")
-
-def header(txt):
-    print(f"{Style.BRIGHT}{txt}{Style.RESET_ALL}")
+def msg(tipo, txt):
+    if tipo == "info":
+        print("[i] " + txt)
+    elif tipo == "ok":
+        print("[+] " + txt)
+    elif tipo == "error":
+        print("[!] " + txt)
+    elif tipo == "ayuda":
+        print("[?] " + txt)
+    elif tipo == "pensando":
+        print("[...] " + txt)
+    else:
+        print(txt)
 
 def input_(txt):
-    return input(f"{Style.BRIGHT}>{Style.RESET_ALL} {txt} ").strip()
+    if txt:
+        return input("> " + txt).strip()
+    return input("> ").strip()
 
-def pedir_numero(min_val, max_val):
-    while True:
-        try:
-            val = int(input(f"[{min_val}-{max_val}] "))
-            if min_val <= val <= max_val:
-                return val
-        except ValueError:
-            pass
-        error(f"Invalid. Enter {min_val}-{max_val}")
+def header(txt):
+    print("")
+    print("--- " + txt + " ---")
+
+def separator():
+    print("-" * 40)
+
+def mostrar_comandos():
+    print("")
+    print("Comandos:")
+    print("  /help     - Ver ayuda")
+    print("  /clear    - Limpiar")
+    print("  /model    - Cambiar modelo")
+    print("  /proveedor- Ver proveedores")
+    print("  /exit     - Salir")
+    print("")

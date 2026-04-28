@@ -1,5 +1,3 @@
-from . import ui
-from . import ollama_client
-from . import commands
+from . import ui, providers, chat_client
 
-__all__ = ["ui", "ollama_client", "commands"]
+__all__ = ["ui", "providers", "chat_client"]
