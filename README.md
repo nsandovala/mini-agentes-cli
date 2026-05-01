@@ -46,7 +46,7 @@ Edit `lib/ollama_client.py` to customize:
 
 ```python
 OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "qwen3-coder:7b"
+MODEL = "qwen3-coder"
 TIMEOUT = 180
 ```
 
